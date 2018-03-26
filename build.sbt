@@ -18,6 +18,17 @@ lazy val core = (project in file("core")).
     libraryDependencies += scalaTest % Test
   )
 
+lazy val testplugin = (project in file("testplugin"))
+  .settings(
+    name := "testplugin",
+    scalacOptions ++= Seq("-feature"),
+    libraryDependencies += { "org.scala-lang" % "scala-library" % scalaVersion.value },
+    libraryDependencies += { "org.scala-lang" % "scala-compiler" % scalaVersion.value },
+    libraryDependencies += { "org.scala-lang" % "scala-reflect" % scalaVersion.value },
+    resourceDirectory in Compile := baseDirectory.value /"src"/"main"/"scala"/"ocapdatarace"/"embedded" 
+  )
+  .dependsOn(core)
+
 lazy val plugin = (project in file("plugin")).
   settings(
     name := "plugin",
@@ -25,6 +36,7 @@ lazy val plugin = (project in file("plugin")).
     libraryDependencies += { "org.scala-lang" % "scala-library" % scalaVersion.value },
     libraryDependencies += { "org.scala-lang" % "scala-compiler" % scalaVersion.value },
     libraryDependencies += { "org.scala-lang" % "scala-reflect" % scalaVersion.value },
-    resourceDirectory in Compile := baseDirectory.value /"src"/"main"/"scala"/"ocapdatarace"/"embedded" 
+    resourceDirectory in Compile := baseDirectory.value /"src"/"main"/"scala"/"ocapblockcheck"/"embedded" 
   )
+  .dependsOn(core)
 

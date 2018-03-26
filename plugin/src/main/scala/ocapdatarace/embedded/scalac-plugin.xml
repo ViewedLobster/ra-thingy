@@ -1,4 +1,0 @@
-<plugin>
-  <name>ra-plugin</name>
-  <classname>ocapdatarace.BlockChecker</classname>
-</plugin>

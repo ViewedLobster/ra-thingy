@@ -1,9 +1,12 @@
 package blocks
+import scala.language.higherKinds
 
 /* Type class for copyable object */
 trait Copyable[S] {
   def copy(s: S) : S
 }
+
+sealed trait Dummy[S]
 
 object Copyable {
   def copy[S : Copyable](s: S) : S = {

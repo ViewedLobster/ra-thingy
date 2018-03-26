@@ -1,0 +1,4 @@
+<plugin>
+  <name>blockcheckplugin</name>
+  <classname>ocapblockcheck.BlockChecker</classname>
+</plugin>

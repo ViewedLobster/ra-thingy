@@ -1,0 +1,4 @@
+<plugin>
+  <name>testplugin</name>
+  <classname>ocapdatarace.TestChecker</classname>
+</plugin>

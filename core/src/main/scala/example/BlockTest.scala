@@ -4,7 +4,7 @@ import blocks._
 
 object Test {
 
-  def method1(f: Block[Int,Int]): Unit = {
+  def method1(f: OcapBlock[Int,Int]): Unit = {
     println(f(3))
   }
 
