@@ -188,6 +188,18 @@ object Macros {
         }
       }
 
+      def inferImplicitProperties( tps: List[Type], prop: Type ): List[Tree] = {
+        tps flatMap { t => {
+          val appProp = appliedType(prop, List(t))
+          c.inferImplicitValue(appProp) match {
+            case EmptyTree => 
+              c.error(code.pos, s"Cannot infer implicit property type $appProp")
+              Nil
+            case tree => List(tree)
+          }
+        }}
+      }
+
       def replaceReferences( body: Tree, substitution: Map[Symbol, Tree] ): Tree = {
         new SubstitutionTransformer( substitution ).transform(body)
       }
@@ -200,12 +212,15 @@ object Macros {
 
       val substitution = ((capturedSyms ++ paramSyms) zip (newTreesCapturedRefs ++ newTreesParamRefs)).toMap
       
-      // replace references in function body tree
+      // replace references in function body tree and untypecheck so we can
+      // typecheck properly later
       val newBody = c.untypecheck(replaceReferences( funBody, substitution ))
       val bclassname = c.freshName(blockName)
 
       val capturedTypes = (capturedSyms map { cs => cs.typeSignature })
       val implicitStmts = capturedTypes map { t => q"implicitly[blocks.Immutable[$t]]" }
+      // TODO should we do something with this?
+      val implicitTrees: List[Tree] = inferImplicitProperties(capturedTypes, prop)
       
       newTreesCapturedValDefs foreach {vd => println(showRaw(vd)) }
       println(showRaw(q"def apply(x: Int): Int = x"))
@@ -213,7 +228,6 @@ object Macros {
       class $bclassname (..$newTreesCapturedValDefs) extends OcapBlock[..$argTypes, $resType] { 
         self =>
         type Prop[S] = blocks.Immutable[S]
-        val implicits = (..$implicitStmts)
         
         
         def apply( ..$newTreesParamValDefs ): $resType = $newBody
@@ -241,7 +255,9 @@ object Macros {
       // DONE  transform the trees by replacing all trees with symbols that refers to any of captured or parameters with new trees
       // DONE  make sure to untypecheck and then typecheck
       //
-      // Add implicitly things
+      // DONE  Add implicitly things
+      //
+      // Different way to get the implicits check.
       //
     }
 
