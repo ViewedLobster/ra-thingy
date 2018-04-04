@@ -15,7 +15,9 @@ lazy val core = (project in file("core")).
   settings(
     name := "core",
     scalacOptions ++= Seq("-feature"),
-    libraryDependencies += scalaTest % Test
+    libraryDependencies += scalaTest % Test,
+    libraryDependencies += { "org.scala-lang" % "scala-reflect" % scalaVersion.value },
+    libraryDependencies += { "org.scala-lang" % "scala-library" % scalaVersion.value },
   )
 
 lazy val testplugin = (project in file("testplugin"))

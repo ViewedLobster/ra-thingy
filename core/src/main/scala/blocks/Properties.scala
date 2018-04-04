@@ -6,6 +6,8 @@ trait Copyable[S] {
   def copy(s: S) : S
 }
 
+class Immutable[S]
+
 sealed trait Dummy[S]
 
 object Copyable {
@@ -13,13 +15,14 @@ object Copyable {
     implicitly[Copyable[S]].copy(s)
   }
 
-  implicit val intCopier : Copyable[Int] = new Copyable[Int] { 
-    def copy(i: Int) : Int = i
-  }
 
   implicit val doubleCopier : Copyable[Double] = new Copyable[Double] {
     def copy(d: Double) : Double = d
   }
+}
+
+object Immutable {
+  implicit val immutInt: Immutable[Int] = new Immutable[Int]
 }
 
 object CopyableBlock extends BlockMaker[Copyable] 

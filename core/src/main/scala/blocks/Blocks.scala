@@ -2,7 +2,7 @@ package blocks
 
 import scala.language.higherKinds
 
-sealed trait OcapBlock[-A, +B] {
+trait OcapBlock[-A, +B] {
   type Prop[S]
 
   def apply(a: A) : B
