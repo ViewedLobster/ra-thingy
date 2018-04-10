@@ -8,6 +8,7 @@ import scala.annotation.tailrec
 
 object Macros {
 
+  // TODO make sure that we are allowed to capture ClassSymbols
 
   // In order to avoid the type parameters A and B, maybe we could change type signature
   // of `fun` to AnyRef and instead to checks in macro
@@ -58,7 +59,6 @@ object Macros {
     // Checks that the expression is an identifier or select expr and that the 
     // reference is non-modifiable, i.e. it is stable?
     def checkCaptureExpr( expr: Tree ) : Unit = {
-      println(s"hahaha: ${expr.symbol}")
       expr match {
         case id @ Ident(tn) =>
           if (!id.symbol.asTerm.isStable)
@@ -109,24 +109,29 @@ object Macros {
     }
 
     // Check that `funbody` only references parameters and the allowed symbols
-    def checkForUndeclared( funbody: Tree, allowedSymbols: Set[Symbol] ): Unit = {
-      new UndeclaredTraverser(allowedSymbols).traverse(funbody)
+    def checkForUndeclared( funbody: Tree, allowedSymbols: Set[Symbol], funsymb: Symbol ): Unit = {
+      new UndeclaredTraverser(allowedSymbols, funsymb).traverse(funbody)
     }
 
-    class UndeclaredTraverser( allowed: Set[Symbol] ) extends Traverser {
+    class UndeclaredTraverser( allowed: Set[Symbol], ownerfun: Symbol ) extends Traverser {
 
       def isAccessible( tree: Tree ): Boolean = tree match {
         case Select(o, tn) => isAccessible(o)
-        case id @ Ident(_) => allowed contains id.symbol
+        case id @ Ident(_) => 
+          (allowed contains id.symbol) || isOwnedTransitively(id.symbol)(ownerfun)
         case _ => 
+          // TODO this is wrong
           println(showRaw(tree))
           sys.error("wowowowowo")
       }
 
       override def traverse(tree: Tree) : Unit = tree match {
         case id @ Ident(_) => 
-          if (!isAccessible(id))
+          if (!isAccessible(id) && id.symbol.isTerm) {
+            println(id.symbol)
+            println(id.symbol.isType)
             c.error(tree.pos, "Reference not allowed")
+          }
           // TODO there should be some other case right?
 //        case Select(o, tn) => 
 //          if (!isAccessible(o))
@@ -193,7 +198,7 @@ object Macros {
           val appProp = appliedType(prop, List(t))
           c.inferImplicitValue(appProp) match {
             case EmptyTree => 
-              c.error(code.pos, s"Cannot infer implicit property type $appProp")
+              c.error(code.pos, s"Cannot infer implicit property of type $appProp")
               Nil
             case tree => List(tree)
           }
@@ -221,13 +226,23 @@ object Macros {
       val implicitStmts = capturedTypes map { t => q"implicitly[blocks.Immutable[$t]]" }
       // TODO should we do something with this?
       val implicitTrees: List[Tree] = inferImplicitProperties(capturedTypes, prop)
+
+      val propPathList = prop.toString.split('.')
+      val propPathEncapsulated = propPathList.init.map{s => TermName(s)} :+ TypeName(propPathList.last)
+
+      // TODO this is really pathological and hard to read
+      val propTreeFun = propPathEncapsulated.tail.foldLeft{ (t: Tree) => t }
+        {
+          (inner: Tree => Tree, next: Name) =>
+            {(t: Tree) => Select(t, next) } compose inner 
+        }
       
-      newTreesCapturedValDefs foreach {vd => println(showRaw(vd)) }
-      println(showRaw(q"def apply(x: Int): Int = x"))
+      val propTree = AppliedTypeTree(propTreeFun(Ident(propPathEncapsulated.head)), List(Ident(TypeName("S"))))
+      
       val newCode = q"""
       class $bclassname (..$newTreesCapturedValDefs) extends OcapBlock[..$argTypes, $resType] { 
         self =>
-        type Prop[S] = blocks.Immutable[S]
+        type Prop[S] = $propTree
         
         
         def apply( ..$newTreesParamValDefs ): $resType = $newBody
@@ -236,9 +251,11 @@ object Macros {
       """
       
       println(showRaw(newCode))
+      println("Macro generated:")
       println(newCode)
 
-      c.typeCheck( newCode )
+      //c.typecheck( newCode )
+      newCode
     
       // TODO
       // DONE  generate new trees for the captured vals, i.e. prelude
@@ -257,7 +274,10 @@ object Macros {
       //
       // DONE  Add implicitly things
       //
-      // Different way to get the implicits check.
+      // DONE  Different way to get the implicits check.
+      //
+      // DONE  Generate the property properly
+      //
       //
     }
 
@@ -274,7 +294,7 @@ object Macros {
 
     val preludeDefs = checkValueCaptures(prelude)
     val (preludeSymbols, preludeExprs) = (preludeDefs.unzip)
-    println(preludeExprs)
+    //println(preludeExprs)
     val preludeExprsOk = preludeExprs.foreach(checkCaptureExpr)
     val preludeTypes = getPreludeTypes(prelude)
     // TODO should we just take captured variables and check that they 
@@ -287,22 +307,20 @@ object Macros {
     }
     val allowedSymbols = preludeSymbols.toSet ++ functionParamSyms.toSet
     // CHeck that no values exept parameters and 
-    checkForUndeclared(fun.body, allowedSymbols)
+    checkForUndeclared(fun.body, allowedSymbols, fun.symbol)
 
-    println(s"${showRaw(code)}")
-    println(fun.symbol)
-    println(s"code symbol: ${code.symbol}")
-    println(s"code is term: ${code.isTerm}")
+//    println(s"${showRaw(code)}")
+//    println(fun.symbol)
+//    println(s"code symbol: ${code.symbol}")
+//    println(s"code is term: ${code.isTerm}")
 
-    generateBlockTree(preludeSymbols,
+    c.typecheck(generateBlockTree(preludeSymbols,
                       functionParamSyms,
                       fun.body,
                       prop,
                       c.weakTypeOf[B],
-                      preludeExprs)
+                      preludeExprs))
     
-    // RETURN
-    code
   }
 }
   /** Nice rewrite:

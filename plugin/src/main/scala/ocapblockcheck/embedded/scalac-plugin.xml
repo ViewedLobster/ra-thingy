@@ -1,4 +1,4 @@
 <plugin>
   <name>blockcheckplugin</name>
-  <classname>ocapblockcheck.BlockChecker</classname>
+  <classname>ocapblockcheck.LacasaPlugin</classname>
 </plugin>
