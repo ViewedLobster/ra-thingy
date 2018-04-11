@@ -403,6 +403,7 @@ class LacasaPlugin(val global: Global) extends NscPlugin { self =>
           val leakChecker = new Traverser {
             override def traverse(tree: Tree): Unit = tree match {
               case sel @ Select(obj, _) => 
+                println(s"${showRaw(sel)}: ${sel.symbol}: ${sel.symbol.owner}")
                 val potentialMod = sel.symbol.owner
                 if (potentialMod.isModuleClass && potentialMod.isSynthetic) {
                   // synthetic modules are secure, do nothing
@@ -446,12 +447,15 @@ class LacasaPlugin(val global: Global) extends NscPlugin { self =>
                     requireOcap(other.symbol)
                 }
 
+              case TypeApply(_,_) => 
+                println(s"${showRaw(tree)}")
+                super.traverse(tree)
               case other => super.traverse(other)
             }
           } // endof Traverser
           leakChecker.traverse(rhs)
           }
-        
+
         case _ => super.traverse(tree)
       }
     }

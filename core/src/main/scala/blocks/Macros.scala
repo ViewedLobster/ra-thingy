@@ -114,28 +114,37 @@ object Macros {
     }
 
     class UndeclaredTraverser( allowed: Set[Symbol], ownerfun: Symbol ) extends Traverser {
-
-      def isAccessible( tree: Tree ): Boolean = tree match {
-        case Select(o, tn) => isAccessible(o)
-        case id @ Ident(_) => 
-          (allowed contains id.symbol) || isOwnedTransitively(id.symbol)(ownerfun)
-        case _ => 
-          // TODO this is wrong
-          println(showRaw(tree))
-          sys.error("wowowowowo")
+      def isStaticPath( s: Symbol ) : Boolean = {
+        s != NoSymbol && {
+          (s.isMethod && isStaticPath(s.owner)) || {
+            (s.isModule || s.isModuleClass || s.isPackage || s.isPackageClass) &&
+            (s.isStatic || isStaticPath(s.owner))
+          }
+        }
       }
 
+      def isAccessible( tree: Tree ): Boolean = 
+        (allowed contains tree.symbol) || isOwnedTransitively(tree.symbol)(ownerfun) ||
+        isStaticPath(tree.symbol)
+
+        // Shouldn' this look at selects instead since in no case should we allow
+        // capturing `this`? Statically accessible methods should be allowed 
       override def traverse(tree: Tree) : Unit = tree match {
-        case id @ Ident(_) => 
-          if (!isAccessible(id) && id.symbol.isTerm) {
-            println(id.symbol)
-            println(id.symbol.isType)
-            c.error(tree.pos, "Reference not allowed")
+        // There are 4 ways to reference an object:
+        case New(_) => () // New is always allowed since it is a class instantiation
+                          // Instansiation checks will be done in compiler plugin
+        case id @ Ident(_) =>  
+          if (!isAccessible(id)) {
+            c.error(tree.pos, s"Reference not allowed ${showRaw(tree)}: ${tree.symbol}")
           }
-          // TODO there should be some other case right?
-//        case Select(o, tn) => 
-//          if (!isAccessible(o))
-//            c.error(tree.pos, "Reference not allowed")
+        case th @ This(_) => // Checks for isolation will be carried out later (ocap check)
+          if (!isAccessible(th)) {
+            c.error(tree.pos, s"Reference not allowed ${showRaw(tree)}: ${tree.symbol}")
+          }
+        case su @ Super(_) => // Checks for isolation will be carried out later (ocap check)
+          if (!isAccessible(su)) {
+            c.error(tree.pos, s"Reference not allowed ${showRaw(tree)}: ${tree.symbol}")
+          }
         case _ => super.traverse(tree)
       }
     }
